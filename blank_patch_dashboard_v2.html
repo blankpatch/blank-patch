@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blank Patch — Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
+
+  :root {
+    --black:   #0f0f0f;
+    --dark:    #1a1a1a;
+    --card:    #222222;
+    --border:  #2e2e2e;
+    --orange:  #ff6b00;
+    --orange2: #ff8c00;
+    --white:   #f0f0f0;
+    --muted:   #666;
+    --green:   #2ecc71;
+    --red:     #e74c3c;
+    --blue:    #3498db;
+    --mono:    'Space Mono', monospace;
+    --head:    'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ─── TOP BAR ─── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--dark);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    font-family: var(--head);
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: 4px;
+    color: var(--white);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--orange); }
+  .header-meta {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-align: right;
+  }
+  .live-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    margin-right: 5px;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ─── NAV TABS ─── */
+  nav {
+    display: flex;
+    gap: 0;
+    padding: 0 28px;
+    background: var(--dark);
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: var(--head);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 20px 10px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  /* ─── LAYOUT ─── */
+  main { padding: 24px 28px; max-width: 1400px; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .col-span-2 { grid-column: span 2; }
+  .col-span-3 { grid-column: span 3; }
+
+  /* ─── CARD ─── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+  }
+  .card.orange::before { background: var(--orange); }
+  .card.green::before { background: var(--green); }
+  .card.blue::before { background: var(--blue); }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .card-value {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: 42px;
+    line-height: 1;
+    color: var(--white);
+  }
+  .card-value.orange { color: var(--orange); }
+  .card-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+  .card-delta {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+  .card-delta.up { background: rgba(46,204,113,0.15); color: var(--green); }
+  .card-delta.down { background: rgba(231,76,60,0.15); color: var(--red); }
+
+  .section-title {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--white);
+    margin: 28px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title span { color: var(--orange); }
+
+  /* ─── CHART WRAPPER ─── */
+  .chart-wrap {
+    position: relative;
+    width: 100%;
+  }
+  .chart-title {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ─── TABLE ─── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-weight: 400;
+  }
+  .data-table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 12px;
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: rgba(255,107,0,0.04); }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: 700;
+  }
+  .badge-green  { background: rgba(46,204,113,0.15); color: var(--green); }
+  .badge-orange { background: rgba(255,107,0,0.15); color: var(--orange); }
+  .badge-blue   { background: rgba(52,152,219,0.15); color: var(--blue); }
+  .badge-gray   { background: rgba(255,255,255,0.07); color: var(--muted); }
+  .badge-red    { background: rgba(231,76,60,0.15); color: var(--red); }
+
+  .metric-pill {
+    display: inline-block;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--white);
+    font-family: var(--mono);
+  }
+
+  /* ─── ADD ENTRY PANEL ─── */
+  .entry-panel {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--orange);
+    border-radius: 4px;
+    padding: 20px;
+    margin-top: 16px;
+  }
+  .entry-panel h3 {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 16px;
+  }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .form-group input, .form-group select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--white);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--orange);
+  }
+  .form-group select option { background: var(--card); }
+  .btn {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 24px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-orange { background: var(--orange); color: var(--black); }
+  .btn-orange:hover { background: var(--orange2); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .btn-ghost:hover { border-color: var(--orange); color: var(--orange); }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+
+  /* ─── CAMPAIGN CARD ─── */
+  .campaign-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 4px; }
+  .camp-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    position: relative;
+  }
+  .camp-card.active { border-left: 3px solid var(--orange); }
+  .camp-card.ended  { border-left: 3px solid var(--border); opacity: 0.7; }
+  .camp-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .camp-card-tag {
+    font-family: var(--head);
+    font-weight: 800;
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: var(--orange);
+  }
+  .camp-card-track { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .camp-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .camp-metric-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .camp-metric-val {
+    font-family: var(--head);
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--white);
+  }
+  .camp-metric-val.good { color: var(--green); }
+  .camp-metric-val.warn { color: var(--orange); }
+  .camp-chart-mini { margin-top: 12px; }
+
+  /* ─── PITCH BOARD ─── */
+  .pitch-cols { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+  .pitch-col-header {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .pitch-col-header.bekreaftet { border-color: var(--green); color: var(--green); }
+  .pitch-col-header.varm { border-color: var(--orange); color: var(--orange); }
+  .pitch-col-header.afventer { border-color: var(--blue); color: var(--blue); }
+  .pitch-col-header.sendt { border-color: var(--muted); }
+  .pitch-col-header.afvist { border-color: var(--red); color: var(--red); }
+
+  .pitch-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .pitch-item:hover { border-color: var(--orange); }
+  .pitch-venue { font-weight: 700; font-size: 12px; color: var(--white); }
+  .pitch-country { font-size: 10px; color: var(--muted); }
+  .pitch-next { font-size: 10px; color: var(--orange); margin-top: 4px; }
+  .pitch-date { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* ─── CONFIG ─── */
+  .config-info {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+  .config-info code {
+    background: var(--card);
+    padding: 1px 6px;
+    border-radius: 2px;
+    color: var(--orange);
+    font-family: var(--mono);
+  }
+  .config-info h4 {
+    font-family: var(--head);
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--white);
+    margin: 16px 0 6px;
+  }
+  .config-status { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .config-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .config-dot.ok { background: var(--green); }
+  .config-dot.warn { background: var(--orange); }
+  .config-dot.err { background: var(--red); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* responsive */
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .pitch-cols { grid-template-columns: 1fr 1fr; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    main { padding: 14px 14px; }
+    header { padding: 0 14px; }
+    nav { padding: 0 14px; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .pitch-cols { grid-template-columns: 1fr; }
+    .camp-metrics { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">BLANK <span>PATCH</span></div>
+  <div class="header-meta">
+    <div><span class="live-dot"></span>Demo-tilstand — forbind Google Sheets for live data</div>
+    <div id="today-date"></div>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showTab('overview')">Overblik</div>
+  <div class="tab" onclick="showTab('campaigns')">Kampagner</div>
+  <div class="tab" onclick="showTab('pitches')">Pitches</div>
+  <div class="tab" onclick="showTab('tracks')">Tracks</div>
+  <div class="tab" onclick="showTab('shorts')">Shorts</div>
+  <div class="tab" onclick="showTab('config')">Opsætning</div>
+</nav>
+
+<main>
+
+<!-- ══════════ OVERBLIK ══════════ -->
+<div id="sec-overview" class="section active">
+
+  <div class="grid-4" style="margin-top:4px">
+    <div class="card orange">
+      <div class="card-label">Abonnenter</div>
+      <div class="card-value orange" id="kpi-subs">5.600</div>
+      <div class="card-delta up">+300 denne uge</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Aktive kampagner</div>
+      <div class="card-value">4</div>
+      <div class="card-sub">2 Longform · 2 Shorts</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Bekræftede gigs</div>
+      <div class="card-value" style="color:var(--green)">1</div>
+      <div class="card-sub">Horizon Festival · 15 aug</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Varme leads</div>
+      <div class="card-value">3</div>
+      <div class="card-sub">Bang Face · H15 · Liquicity</div>
+    </div>
+  </div>
+
+  <div class="section-title">Kanalvækst — <span>Abonnenter over tid</span></div>
+  <div class="card" style="padding:20px">
+    <div class="chart-wrap" style="height:240px">
+      <canvas id="chart-subs"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:16px">
+    <div>
+      <div class="section-title">Promo <span>Performance</span></div>
+      <div class="card">
+        <div class="chart-title">CPA pr. kampagne (kr.) — lavere er bedre</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chart-cpa"></canvas>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="section-title">Promo <span>Tags</span></div>
+      <div class="card">
+        <div class="chart-title">Abonnenter per tag (samlede kampagner)</div>
+        <div class="chart-wrap" style="height:200px">
+          <canvas id="chart-tags"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">Daglig opdatering</div>
+  <div class="entry-panel">
+    <h3>+ Tilføj snapshot</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Dato</label>
+        <input type="date" id="snap-date">
+      </div>
+      <div class="form-group">
+        <label>Abonnenter</label>
+        <input type="number" id="snap-subs" placeholder="5600">
+      </div>
+      <div class="form-group">
+        <label>Samlede views</label>
+        <input type="number" id="snap-views" placeholder="112000">
+      </div>
+      <div class="form-group">
+        <label>Watch time (timer)</label>
+        <input type="number" id="snap-wt" placeholder="5600">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-orange" onclick="addChannelSnapshot()">Gem snapshot</button>
+      <button class="btn btn-ghost">Hent fra YouTube API</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ KAMPAGNER ══════════ -->
+<div id="sec-campaigns" class="section">
+
+  <div class="grid-4" style="margin-top:4px">
+    <div class="card orange">
+      <div class="card-label">Samlet forbrug</div>
+      <div class="card-value orange">3.350</div>
+      <div class="card-sub">kr. på tværs af alle kampagner</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Bedste CPA</div>
+      <div class="card-value" style="font-size:32px">0,98 kr.</div>
+      <div class="card-sub">NO COMPUTER · Track 3</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Samlede abonnenter (promo)</div>
+      <div class="card-value" style="font-size:32px">2.755</div>
+      <div class="card-sub">via betalte kampagner</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">Stærkeste tag</div>
+      <div class="card-value" style="font-size:22px;color:var(--green)">NO COMPUTER</div>
+      <div class="card-sub">Lavest CPA gennemgående</div>
+    </div>
+  </div>
+
+  <div class="section-title">Aktive <span>Kampagner</span></div>
+  <div class="campaign-cards" id="active-camps"></div>
+
+  <div class="section-title">Historik <span>CPA over tid</span></div>
+  <div class="card">
+    <div class="chart-wrap" style="height:220px">
+      <canvas id="chart-cpa-history"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">Afsluttede <span>Kampagner</span></div>
+  <div class="card">
+    <table class="data-table" id="ended-camps-table">
+      <thead>
+        <tr>
+          <th>Track</th><th>Tag</th><th>Type</th><th>Periode</th>
+          <th>Budget</th><th>Abonnenter</th><th>CPA</th><th>CR</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">+ Ny <span>Kampagne</span></div>
+  <div class="entry-panel">
+    <h3>Registrer kampagne</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Track</label>
+        <select id="nc-track">
+          <option value="1">1 - Waiting For</option>
+          <option value="2">2 - Hey Hey</option>
+          <option value="3">3 - Moonshot</option>
+          <option value="4">4 - Wait What</option>
+          <option value="5">5 - Imagination</option>
+          <option value="6">6 - UFO Explores</option>
+          <option value="7">7 - Hands Up</option>
+          <option value="8">8 - Unbelievable</option>
+          <option value="9">9 - Need Bass</option>
+          <option value="10">10 - Break It Up</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="nc-type">
+          <option>Longform</option>
+          <option>Shorts</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tag</label>
+        <input type="text" id="nc-tag" placeholder="NO COMPUTER">
+      </div>
+      <div class="form-group">
+        <label>Promo-titel</label>
+        <input type="text" id="nc-title" placeholder="creating massive stereo">
+      </div>
+      <div class="form-group">
+        <label>Startdato</label>
+        <input type="date" id="nc-start">
+      </div>
+      <div class="form-group">
+        <label>Budget (kr.)</label>
+        <input type="number" id="nc-budget" placeholder="800">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-orange">Opret kampagne</button>
+    </div>
+  </div>
+
+  <div class="section-title" style="margin-top:24px">+ Dagligt <span>Snapshot</span></div>
+  <div class="entry-panel">
+    <h3>Tilføj kampagne-snapshot</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Dato</label>
+        <input type="date" id="cs-date">
+      </div>
+      <div class="form-group">
+        <label>Kampagne</label>
+        <select id="cs-camp">
+          <option value="1">Kamp #1 - NO COMPUTER (T9 Longform)</option>
+          <option value="2">Kamp #2 - BASS ARCHITECT (T2 Longform)</option>
+          <option value="3">Kamp #3 - LIQUID DNB (T5 Longform)</option>
+          <option value="4">Kamp #4 - NO COMPUTER (T3 Longform)</option>
+          <option value="10">Kamp #10 - NO COMPUTER (T9 Need Bass — sub drop · Shorts)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Forbrug (kr.)</label>
+        <input type="number" id="cs-spend" placeholder="477.42">
+      </div>
+      <div class="form-group">
+        <label>Eksponeringer</label>
+        <input type="number" id="cs-imp" placeholder="78452">
+      </div>
+      <div class="form-group">
+        <label>Visninger</label>
+        <input type="number" id="cs-views" placeholder="841">
+      </div>
+      <div class="form-group">
+        <label>Nye abonnenter</label>
+        <input type="number" id="cs-subs" placeholder="330">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-orange" onclick="addCampaignSnapshot()">Gem snapshot</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ PITCHES ══════════ -->
+<div id="sec-pitches" class="section">
+
+  <div class="grid-4" style="margin-top:4px">
+    <div class="card green"><div class="card-label">Bekræftede gigs</div><div class="card-value" style="color:var(--green)">1</div></div>
+    <div class="card orange"><div class="card-label">Varme leads</div><div class="card-value orange">3</div></div>
+    <div class="card blue"><div class="card-label">Afventer svar</div><div class="card-value" style="color:var(--blue)">4</div></div>
+    <div class="card"><div class="card-label">Samlede pitches</div><div class="card-value">71+</div></div>
+  </div>
+
+  <div class="section-title">Pipeline <span>Board</span></div>
+  <div class="pitch-cols">
+    <div>
+      <div class="pitch-col-header bekreaftet">Bekræftet</div>
+      <div id="col-bekreaftet"></div>
+    </div>
+    <div>
+      <div class="pitch-col-header varm">Varm lead</div>
+      <div id="col-varm"></div>
+    </div>
+    <div>
+      <div class="pitch-col-header afventer">Afventer</div>
+      <div id="col-afventer"></div>
+    </div>
+    <div>
+      <div class="pitch-col-header sendt">Sendt</div>
+      <div id="col-sendt"></div>
+    </div>
+    <div>
+      <div class="pitch-col-header afvist">Afvist</div>
+      <div id="col-afvist"></div>
+    </div>
+  </div>
+
+  <div class="section-title">Kommende <span>Follow-ups</span></div>
+  <div class="card">
+    <table class="data-table" id="followup-table">
+      <thead>
+        <tr><th>Venue</th><th>Land</th><th>Kontakt</th><th>Status</th><th>Deadline</th><th>Action</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════ TRACKS ══════════ -->
+<div id="sec-tracks" class="section">
+
+  <div class="grid-4" style="margin-top:4px">
+    <div class="card orange"><div class="card-label">Tracks total</div><div class="card-value orange">10</div></div>
+    <div class="card green"><div class="card-label">Publicerede</div><div class="card-value" style="color:var(--green)">10</div></div>
+    <div class="card"><div class="card-label">Shorts i alt</div><div class="card-value" id="kpi-shorts-total">10</div></div>
+    <div class="card"><div class="card-label">Med live visuals</div><div class="card-value">3</div></div>
+  </div>
+
+  <div class="section-title">Track <span>Oversigt</span></div>
+  <div class="card">
+    <table class="data-table" id="tracks-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Titel</th><th>Vocal</th><th>Genre</th>
+          <th>Publiceret</th><th>Video ID</th><th>Shorts</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ══════════ SHORTS ══════════ -->
+<div id="sec-shorts" class="section">
+
+  <div class="grid-4" style="margin-top:4px">
+    <div class="card orange"><div class="card-label">Shorts i alt</div><div class="card-value orange" id="kpi-shorts-count">10</div></div>
+    <div class="card green"><div class="card-label">Publicerede</div><div class="card-value" style="color:var(--green)" id="kpi-shorts-pub">10</div></div>
+    <div class="card"><div class="card-label">Aktive kampagner</div><div class="card-value" id="kpi-shorts-camps">1</div></div>
+    <div class="card"><div class="card-label">Tracks med shorts</div><div class="card-value" id="kpi-shorts-tracks">8</div></div>
+  </div>
+
+  <div class="section-title">Shorts <span>Oversigt</span></div>
+  <div class="card">
+    <table class="data-table" id="shorts-table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Track</th><th>Titel</th><th>Clip</th>
+          <th>Publiceret</th><th>YouTube Shorts ID</th><th>Status</th><th>Kampagner</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">Shorts pr. <span>Track</span></div>
+  <div class="card">
+    <div class="chart-title">Antal Shorts per track</div>
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="chart-shorts-per-track"></canvas>
+    </div>
+  </div>
+
+  <div class="section-title">+ Nyt <span>Short</span></div>
+  <div class="entry-panel">
+    <h3>Registrer Short</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Track</label>
+        <select id="ns-track">
+          <option value="1">1 - Waiting For</option>
+          <option value="2">2 - Hey Hey</option>
+          <option value="3">3 - Moonshot</option>
+          <option value="4">4 - Wait What</option>
+          <option value="5">5 - Imagination</option>
+          <option value="6">6 - UFO Explores</option>
+          <option value="7">7 - Hands Up</option>
+          <option value="8">8 - Unbelievable</option>
+          <option value="9">9 - Need Bass</option>
+          <option value="10">10 - Break It Up</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>YouTube Shorts ID</label>
+        <input type="text" id="ns-ytid" placeholder="SHORTS_ID_xx">
+      </div>
+      <div class="form-group">
+        <label>Titel</label>
+        <input type="text" id="ns-title" placeholder="Need Bass — sub drop">
+      </div>
+      <div class="form-group">
+        <label>Clip start (sek.)</label>
+        <input type="number" id="ns-start" placeholder="40">
+      </div>
+      <div class="form-group">
+        <label>Clip slut (sek.)</label>
+        <input type="number" id="ns-end" placeholder="80">
+      </div>
+      <div class="form-group">
+        <label>Publiceret</label>
+        <input type="date" id="ns-date">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:12px">
+      <label>Noter</label>
+      <input type="text" id="ns-notes" placeholder="Første drop, kampagne-klar osv.">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-orange">Gem Short</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════ OPSÆTNING ══════════ -->
+<div id="sec-config" class="section">
+
+  <div class="section-title" style="margin-top:4px">Forbind <span>Google Sheets</span></div>
+  <div class="entry-panel">
+    <h3>Sheets & API konfiguration</h3>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="form-group" style="grid-column:span 2">
+        <label>Google Sheets ID</label>
+        <input type="text" id="cfg-sheet-id" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label>Google API Key</label>
+        <input type="text" id="cfg-api-key" placeholder="AIza...">
+      </div>
+      <div class="form-group" style="grid-column:span 2">
+        <label>YouTube Channel ID</label>
+        <input type="text" id="cfg-yt-id" placeholder="UCxxxxxxxxxxxxxxxx">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-orange" onclick="saveConfig()">Gem konfiguration</button>
+      <button class="btn btn-ghost" onclick="testConnection()">Test forbindelse</button>
+    </div>
+  </div>
+
+  <div class="section-title">Status</div>
+  <div class="config-info">
+    <h4>Forbindelser</h4>
+    <div class="config-status"><div class="config-dot warn"></div>Google Sheets — ikke konfigureret</div>
+    <div class="config-status"><div class="config-dot warn"></div>YouTube Data API — ikke konfigureret</div>
+
+    <h4>Sheets-struktur</h4>
+    Appen forventer følgende faner i dit Google Sheet:<br><br>
+    <code>tracks</code> — Track-oversigt med video-id og shorts-id<br>
+    <code>campaigns</code> — Én row per kampagne<br>
+    <code>campaign_snapshots</code> — Daglige snapshots per kampagne<br>
+    <code>channel_snapshots</code> — Daglige kanal-snapshots<br>
+    <code>pitches</code> — CRM med venue-status<br><br>
+
+    <h4>Næste skridt</h4>
+    1. Importer den medfølgende <code>.xlsx</code> template til Google Drive (Fil → Importer)<br>
+    2. Opret et Google Cloud projekt og aktiver <strong>Sheets API</strong> + <strong>YouTube Data API v3</strong><br>
+    3. Opret en API-nøgle og indsæt den herover<br>
+    4. Kopier Sheets-ID fra URL'en på dit sheet (den lange kode mellem <code>/d/</code> og <code>/edit</code>)<br>
+    5. Gem og test forbindelsen
+  </div>
+
+</div>
+
+</main>
+
+<script>
+// ─── DATA (demo) ────────────────────────────────────────────
+const DATA = {
+  channelSnapshots: [
+    { date: "15/1", subs: 0 },
+    { date: "22/1", subs: 210 },
+    { date: "29/1", subs: 580 },
+    { date: "5/2",  subs: 1100 },
+    { date: "12/2", subs: 1850 },
+    { date: "19/2", subs: 2700 },
+    { date: "26/2", subs: 3600 },
+    { date: "5/3",  subs: 4400 },
+    { date: "12/3", subs: 4900 },
+    { date: "19/3", subs: 5300 },
+    { date: "26/3", subs: 5600 },
+  ],
+  shorts: [
+    { id:1,  track_id:1, ytid:"SHORTS_ID_1a", title:"Waiting For — drop clip",    start:45, end:75,  date:"20/1/26", status:"Published", notes:"Første drop" },
+    { id:2,  track_id:1, ytid:"SHORTS_ID_1b", title:"Waiting For — build intro",  start:0,  end:40,  date:"1/2/26",  status:"Published", notes:"Intro-clip" },
+    { id:3,  track_id:2, ytid:"SHORTS_ID_2a", title:"Hey Hey — bas moment",       start:30, end:70,  date:"28/1/26", status:"Published", notes:"" },
+    { id:4,  track_id:3, ytid:"SHORTS_ID_3a", title:"Moonshot — melodic peak",    start:60, end:100, date:"5/2/26",  status:"Published", notes:"" },
+    { id:5,  track_id:3, ytid:"SHORTS_ID_3b", title:"Moonshot — build",           start:10, end:50,  date:"15/2/26", status:"Published", notes:"" },
+    { id:6,  track_id:4, ytid:"SHORTS_ID_4a", title:"Wait What — glitch drop",    start:20, end:55,  date:"12/2/26", status:"Published", notes:"" },
+    { id:7,  track_id:5, ytid:"SHORTS_ID_5a", title:"Imagination — chop",         start:35, end:70,  date:"20/2/26", status:"Published", notes:"" },
+    { id:8,  track_id:6, ytid:"SHORTS_ID_6a", title:"UFO Explores — intro",       start:0,  end:45,  date:"26/2/26", status:"Published", notes:"" },
+    { id:9,  track_id:9, ytid:"SHORTS_ID_9a", title:"Need Bass — sub drop",       start:40, end:80,  date:"18/3/26", status:"Published", notes:"Kampagne #10" },
+    { id:10, track_id:9, ytid:"SHORTS_ID_9b", title:"Need Bass — bass sweep",     start:80, end:120, date:"25/3/26", status:"Published", notes:"" },
+  ],
+  campaigns: [
+    { id:1,  track:9, short_id:null, name:"Need Bass",    tag:"NO COMPUTER",      type:"Longform", budget:850,  spend:477, subs:330, cpa:1.45, cr:39.24, status:"Active", start:"20/3/26", end:"" },
+    { id:2,  track:2, short_id:null, name:"Hey Hey",      tag:"BASS ARCHITECT",   type:"Longform", budget:750,  spend:568, subs:442, cpa:1.29, cr:43.68, status:"Active", start:"17/3/26", end:"" },
+    { id:3,  track:5, short_id:null, name:"Imagination",  tag:"LIQUID DNB",       type:"Longform", budget:800,  spend:576, subs:440, cpa:1.31, cr:41.94, status:"Active", start:"17/3/26", end:"" },
+    { id:4,  track:3, short_id:null, name:"Moonshot",     tag:"NO COMPUTER",      type:"Longform", budget:950,  spend:717, subs:735, cpa:0.98, cr:54.61, status:"Active", start:"14/3/26", end:"" },
+    { id:5,  track:9, short_id:null, name:"Need Bass",    tag:"NO DAW. JUST BASS",type:"Longform", budget:250,  spend:249, subs:197, cpa:1.27, cr:47.24, status:"Ended",  start:"11/3/26", end:"16/3/26" },
+    { id:6,  track:3, short_id:null, name:"Moonshot",     tag:"SPACE VIBE",       type:"Longform", budget:null, spend:170, subs:151, cpa:1.13, cr:302,   status:"Ended",  start:"8/3/26",  end:"12/3/26" },
+    { id:7,  track:2, short_id:null, name:"Hey Hey",      tag:"BASS ARCHITECT",   type:"Longform", budget:750,  spend:350, subs:302, cpa:1.16, cr:67.56, status:"Ended",  start:"8/3/26",  end:"14/3/26" },
+    { id:8,  track:3, short_id:null, name:"Moonshot",     tag:"RAW AUDIO",        type:"Longform", budget:null, spend:79,  subs:79,  cpa:1.00, cr:42.70, status:"Ended",  start:"6/3/26",  end:"12/3/26" },
+    { id:9,  track:9, short_id:null, name:"Need Bass",    tag:"NO DAW. JUST BASS",type:"Longform", budget:250,  spend:250, subs:210, cpa:1.19, cr:43.93, status:"Ended",  start:"5/3/26",  end:"10/3/26" },
+    { id:10, track:9, short_id:9,   name:"Need Bass",    tag:"NO COMPUTER",      type:"Shorts",   budget:200,  spend:60,  subs:18,  cpa:3.33, cr:45.0,  status:"Active", start:"22/3/26", end:"" },
+  ],
+  pitches: [
+    { venue:"Horizon Festival",  country:"DK", contact:"Tomek Wroblewski", status:"Bekræftet", next_date:"15/8/26", next_action:"SPILLER - 15. august 2026" },
+    { venue:"Bang Face",         country:"UK", contact:"",                  status:"Varm lead", next_date:"1/5/26",  next_action:"Send update ved 10k subs" },
+    { venue:"H15 Kødbyen",       country:"DK", contact:"Hans Kjeld",        status:"Varm lead", next_date:"30/3/26", next_action:"Follow-up" },
+    { venue:"HUSET København",   country:"DK", contact:"Jonas S. Kielland", status:"Afventer",  next_date:"10/4/26", next_action:"Følg op" },
+    { venue:"Teater Momentum",   country:"DK", contact:"Rikke Hansen",      status:"Varm lead", next_date:"15/4/26", next_action:"Afvent Open Call S26/27" },
+    { venue:"UHØRT Festival",    country:"DK", contact:"",                  status:"Afventer",  next_date:"20/4/26", next_action:"Følg op" },
+    { venue:"Liquicity",         country:"NL", contact:"Alex Witschge",     status:"Varm lead", next_date:"1/5/26",  next_action:"Send update ved 10k subs" },
+    { venue:"Radar Aarhus",      country:"DK", contact:"",                  status:"Afventer",  next_date:"7/4/26",  next_action:"Opfølgning 7. april" },
+    { venue:"Høst Møn",          country:"DK", contact:"",                  status:"Afventer",  next_date:"1/8/26",  next_action:"Opfølg august" },
+    { venue:"Attack Release",    country:"UK", contact:"",                  status:"Sendt",     next_date:"31/3/26", next_action:"Follow-up marts" },
+  ],
+  tracks: [
+    { id:1,  title:"Waiting For",   vocal:"What are you waiting for",  genre:"Halftime DnB",    date:"15/1/26", vid:"VIDEO_ID_1"  },
+    { id:2,  title:"Hey Hey",       vocal:"hey hey",                    genre:"Halftime DnB",    date:"22/1/26", vid:"VIDEO_ID_2"  },
+    { id:3,  title:"Moonshot",      vocal:"",                           genre:"Liquid DnB",      date:"29/1/26", vid:"VIDEO_ID_3"  },
+    { id:4,  title:"Wait... What!?",vocal:"huh / wait / what",          genre:"Glitch DnB",      date:"5/2/26",  vid:"VIDEO_ID_4"  },
+    { id:5,  title:"Imagination",   vocal:"Use your imagination",       genre:"DnB",             date:"12/2/26", vid:"VIDEO_ID_5"  },
+    { id:6,  title:"UFO Explores",  vocal:"UFO Explores",               genre:"Halftime DnB",    date:"19/2/26", vid:"VIDEO_ID_6"  },
+    { id:7,  title:"Hands Up",      vocal:"Get the rhythm",             genre:"Jump Up DnB",     date:"26/2/26", vid:"VIDEO_ID_7"  },
+    { id:8,  title:"Unbelievable",  vocal:"Unbelievable",               genre:"DnB",             date:"5/3/26",  vid:"VIDEO_ID_8"  },
+    { id:9,  title:"Need Bass",     vocal:"All you need is Bass",       genre:"Underground DnB", date:"12/3/26", vid:"VIDEO_ID_9"  },
+    { id:10, title:"Break It Up",   vocal:"Break it up",                genre:"Halftime DnB",    date:"19/3/26", vid:"VIDEO_ID_10" },
+  ]
+};
+
+// ─── CHART DEFAULTS ─────────────────────────────────────────
+Chart.defaults.color = '#666';
+Chart.defaults.borderColor = '#2e2e2e';
+Chart.defaults.font.family = "'Space Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const orange = '#ff6b00';
+const orangeT = 'rgba(255,107,0,0.12)';
+const green  = '#2ecc71';
+const greenT = 'rgba(46,204,113,0.10)';
+const blue   = '#3498db';
+const blueT  = 'rgba(52,152,219,0.10)';
+const white  = '#f0f0f0';
+
+// ─── SUBS CHART ─────────────────────────────────────────────
+new Chart(document.getElementById('chart-subs'), {
+  type: 'line',
+  data: {
+    labels: DATA.channelSnapshots.map(d => d.date),
+    datasets: [{
+      label: 'Abonnenter',
+      data: DATA.channelSnapshots.map(d => d.subs),
+      borderColor: orange,
+      backgroundColor: orangeT,
+      fill: true,
+      tension: 0.4,
+      pointBackgroundColor: orange,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#2e2e2e' } },
+      y: { grid: { color: '#2e2e2e' }, beginAtZero: true }
+    }
+  }
+});
+
+// ─── CPA OVERVIEW CHART ─────────────────────────────────────
+const activeCamps = DATA.campaigns.filter(c => c.status === "Active");
+new Chart(document.getElementById('chart-cpa'), {
+  type: 'bar',
+  data: {
+    labels: activeCamps.map(c => `T${c.track} ${c.tag}`),
+    datasets: [{
+      label: 'CPA (kr.)',
+      data: activeCamps.map(c => c.cpa),
+      backgroundColor: activeCamps.map(c => c.cpa < 1.2 ? green : c.cpa < 1.5 ? orange : '#e74c3c'),
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { maxRotation: 30 } },
+      y: { grid: { color: '#2e2e2e' }, beginAtZero: true }
+    }
+  }
+});
+
+// ─── TAG PERF CHART ─────────────────────────────────────────
+const tagMap = {};
+DATA.campaigns.forEach(c => {
+  tagMap[c.tag] = (tagMap[c.tag] || 0) + c.subs;
+});
+const tagEntries = Object.entries(tagMap).sort((a,b) => b[1]-a[1]);
+new Chart(document.getElementById('chart-tags'), {
+  type: 'bar',
+  data: {
+    labels: tagEntries.map(e => e[0]),
+    datasets: [{
+      label: 'Abonnenter',
+      data: tagEntries.map(e => e[1]),
+      backgroundColor: orange,
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#2e2e2e' } },
+      y: { grid: { display: false } }
+    }
+  }
+});
+
+// ─── CPA HISTORY CHART ──────────────────────────────────────
+// Simulated daily CPA trend for active campaigns
+const histLabels = ["14/3","16/3","18/3","20/3","22/3","24/3","26/3"];
+new Chart(document.getElementById('chart-cpa-history'), {
+  type: 'line',
+  data: {
+    labels: histLabels,
+    datasets: [
+      { label: 'NO COMPUTER (T3)', data: [1.10,1.05,0.99,0.98,0.97,0.98,0.98], borderColor: green, backgroundColor: 'transparent', tension:0.3, borderWidth:2, pointRadius:3 },
+      { label: 'BASS ARCHITECT (T2)', data: [null,null,null,1.45,1.44,1.30,1.29], borderColor: orange, backgroundColor: 'transparent', tension:0.3, borderWidth:2, pointRadius:3 },
+      { label: 'LIQUID DNB (T5)', data: [null,null,null,1.35,1.32,1.31,1.31], borderColor: blue, backgroundColor: 'transparent', tension:0.3, borderWidth:2, pointRadius:3 },
+      { label: 'NO COMPUTER (T9)', data: [null,null,null,null,null,null,1.45], borderColor: '#9b59b6', backgroundColor: 'transparent', tension:0.3, borderWidth:2, pointRadius:3 },
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 12, padding: 16 } } },
+    scales: {
+      x: { grid: { color: '#2e2e2e' } },
+      y: { grid: { color: '#2e2e2e' }, title: { display: true, text: 'CPA (kr.)' } }
+    }
+  }
+});
+
+// ─── CAMPAIGN CARDS ─────────────────────────────────────────
+const campContainer = document.getElementById('active-camps');
+activeCamps.forEach(c => {
+  const cpaColor = c.cpa < 1.2 ? 'good' : c.cpa < 1.5 ? 'warn' : '';
+  const shortInfo = c.short_id ? DATA.shorts.find(s => s.id === c.short_id) : null;
+  const subLine = c.type === 'Shorts' && shortInfo
+    ? `Track ${c.track} — ${shortInfo.title}`
+    : `Track ${c.track} — ${c.name} · Longform`;
+  campContainer.innerHTML += `
+    <div class="camp-card active">
+      <div class="camp-card-header">
+        <div>
+          <div class="camp-card-tag">${c.tag}</div>
+          <div class="camp-card-track">${subLine}</div>
+        </div>
+        <span class="badge ${c.type === 'Shorts' ? 'badge-blue' : 'badge-orange'}">${c.type}</span>
+      </div>
+      <div class="camp-metrics">
+        <div><div class="camp-metric-label">CPA</div><div class="camp-metric-val ${cpaColor}">${c.cpa.toFixed(2)} kr.</div></div>
+        <div><div class="camp-metric-label">Abonnenter</div><div class="camp-metric-val">${c.subs}</div></div>
+        <div><div class="camp-metric-label">Forbrug</div><div class="camp-metric-val">${c.spend} kr.</div></div>
+      </div>
+      <div style="margin-top:10px;font-size:10px;color:var(--muted)">Startet ${c.start} · Budget ${c.budget || '—'} kr.</div>
+    </div>`;
+});
+
+// ─── ENDED CAMPAIGNS TABLE ───────────────────────────────────
+const endedTbody = document.querySelector('#ended-camps-table tbody');
+DATA.campaigns.filter(c => c.status === 'Ended').forEach(c => {
+  endedTbody.innerHTML += `<tr>
+    <td>T${c.track} ${c.name}</td>
+    <td><span class="metric-pill">${c.tag}</span></td>
+    <td>${c.type}</td>
+    <td>${c.start} → ${c.end}</td>
+    <td>${c.budget ? c.budget+' kr.' : '—'}</td>
+    <td>${c.subs}</td>
+    <td style="color:${c.cpa < 1.2 ? '#2ecc71' : '#ff6b00'}">${c.cpa.toFixed(2)} kr.</td>
+    <td>${c.cr.toFixed(1)}%</td>
+    <td><span class="badge badge-gray">Afsluttet</span></td>
+  </tr>`;
+});
+
+// ─── PITCH BOARD ─────────────────────────────────────────────
+const colMap = {
+  "Bekræftet": "col-bekreaftet",
+  "Varm lead": "col-varm",
+  "Afventer":  "col-afventer",
+  "Sendt":     "col-sendt",
+  "Afvist":    "col-afvist",
+};
+DATA.pitches.forEach(p => {
+  const col = document.getElementById(colMap[p.status]);
+  if (!col) return;
+  col.innerHTML += `
+    <div class="pitch-item">
+      <div class="pitch-venue">${p.venue}</div>
+      <div class="pitch-country">${p.country}${p.contact ? ' · ' + p.contact : ''}</div>
+      <div class="pitch-next">${p.next_action}</div>
+      <div class="pitch-date">📅 ${p.next_date}</div>
+    </div>`;
+});
+
+// ─── FOLLOW-UP TABLE ─────────────────────────────────────────
+const fuBody = document.querySelector('#followup-table tbody');
+const sortedPitches = [...DATA.pitches].filter(p => p.status !== 'Bekræftet' && p.status !== 'Afvist')
+  .sort((a,b) => a.next_date.localeCompare(b.next_date));
+sortedPitches.forEach(p => {
+  const badge = p.status === 'Varm lead' ? 'badge-orange' : p.status === 'Afventer' ? 'badge-blue' : 'badge-gray';
+  fuBody.innerHTML += `<tr>
+    <td style="font-weight:700">${p.venue}</td>
+    <td>${p.country}</td>
+    <td>${p.contact || '—'}</td>
+    <td><span class="badge ${badge}">${p.status}</span></td>
+    <td style="color:var(--orange)">${p.next_date}</td>
+    <td style="color:var(--muted);font-size:11px">${p.next_action}</td>
+  </tr>`;
+});
+
+// ─── TRACKS TABLE ────────────────────────────────────────────
+const trackTbody = document.querySelector('#tracks-table tbody');
+DATA.tracks.forEach(t => {
+  const shortsForTrack = DATA.shorts.filter(s => s.track_id === t.id);
+  const shortsBadge = shortsForTrack.length > 0
+    ? `<span class="badge badge-orange">${shortsForTrack.length}</span>`
+    : `<span class="badge badge-gray">0</span>`;
+  trackTbody.innerHTML += `<tr>
+    <td style="color:var(--orange);font-weight:700">${t.id}</td>
+    <td style="font-weight:700">${t.title}</td>
+    <td style="color:var(--muted);font-size:11px">${t.vocal || '—'}</td>
+    <td><span class="metric-pill">${t.genre}</span></td>
+    <td>${t.date}</td>
+    <td style="font-size:10px;color:var(--muted)">${t.vid}</td>
+    <td>${shortsBadge}</td>
+  </tr>`;
+});
+document.getElementById('kpi-shorts-total').textContent = DATA.shorts.length;
+
+// ─── SHORTS SECTION ──────────────────────────────────────────
+const shortsTbody = document.querySelector('#shorts-table tbody');
+DATA.shorts.forEach(s => {
+  const track = DATA.tracks.find(t => t.id === s.track_id);
+  const campsForShort = DATA.campaigns.filter(c => c.short_id === s.id);
+  const campsBadge = campsForShort.length > 0
+    ? `<span class="badge badge-orange">${campsForShort.length} aktiv</span>`
+    : `<span class="badge badge-gray">ingen</span>`;
+  shortsTbody.innerHTML += `<tr>
+    <td style="color:var(--orange);font-weight:700">${s.id}</td>
+    <td style="font-weight:700">T${s.track_id} — ${track ? track.title : '?'}</td>
+    <td>${s.title}</td>
+    <td style="color:var(--muted);font-size:11px">${s.start}s → ${s.end}s</td>
+    <td>${s.date}</td>
+    <td style="font-size:10px;color:var(--muted)">${s.ytid}</td>
+    <td><span class="badge badge-green">${s.status}</span></td>
+    <td>${campsBadge}</td>
+  </tr>`;
+});
+
+// KPI updates
+const tracksWithShorts = new Set(DATA.shorts.map(s => s.track_id)).size;
+document.getElementById('kpi-shorts-count').textContent = DATA.shorts.length;
+document.getElementById('kpi-shorts-pub').textContent = DATA.shorts.filter(s => s.status === 'Published').length;
+document.getElementById('kpi-shorts-camps').textContent = DATA.campaigns.filter(c => c.type === 'Shorts' && c.status === 'Active').length;
+document.getElementById('kpi-shorts-tracks').textContent = tracksWithShorts;
+
+// Shorts per track chart
+const shortsPerTrack = DATA.tracks.map(t => ({
+  label: `T${t.id} ${t.title.split(' ').slice(0,2).join(' ')}`,
+  count: DATA.shorts.filter(s => s.track_id === t.id).length
+}));
+new Chart(document.getElementById('chart-shorts-per-track'), {
+  type: 'bar',
+  data: {
+    labels: shortsPerTrack.map(d => d.label),
+    datasets: [{
+      label: 'Shorts',
+      data: shortsPerTrack.map(d => d.count),
+      backgroundColor: shortsPerTrack.map(d => d.count > 1 ? orange : d.count === 1 ? '#3498db' : '#2e2e2e'),
+      borderRadius: 2,
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { maxRotation: 30, font: { size: 10 } } },
+      y: { grid: { color: '#2e2e2e' }, beginAtZero: true, ticks: { stepSize: 1 } }
+    }
+  }
+});
+
+// Set date for shorts form
+document.getElementById('ns-date').value = today;
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('sec-' + id).classList.add('active');
+}
+
+// ─── DATE ────────────────────────────────────────────────────
+const d = new Date();
+document.getElementById('today-date').textContent =
+  d.toLocaleDateString('da-DK', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+
+// ─── FORM: set today's date ───────────────────────────────────
+const today = d.toISOString().slice(0,10);
+['snap-date','cs-date','nc-start'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.value = today;
+});
+
+// ─── ACTIONS (stubs) ─────────────────────────────────────────
+function addChannelSnapshot() {
+  alert('I demo-tilstand — forbind Google Sheets API for at gemme data.');
+}
+function addCampaignSnapshot() {
+  alert('I demo-tilstand — forbind Google Sheets API for at gemme data.');
+}
+function saveConfig() {
+  const id = document.getElementById('cfg-sheet-id').value;
+  const key = document.getElementById('cfg-api-key').value;
+  if (id && key) {
+    localStorage.setItem('bp_sheet_id', id);
+    localStorage.setItem('bp_api_key', key);
+    alert('Konfiguration gemt lokalt. Genindlæs siden for at aktivere live data.');
+  } else {
+    alert('Udfyld Sheets ID og API Key.');
+  }
+}
+function testConnection() {
+  alert('Forbindelsestest — ikke implementeret i demo.');
+}
+
+// ─── LOAD SAVED CONFIG ───────────────────────────────────────
+const savedId = localStorage.getItem('bp_sheet_id');
+const savedKey = localStorage.getItem('bp_api_key');
+if (savedId) document.getElementById('cfg-sheet-id').value = savedId;
+if (savedKey) document.getElementById('cfg-api-key').value = savedKey;
+</script>
+</body>
+</html>
